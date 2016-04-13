@@ -1,16 +1,22 @@
 #CC=gcc
 CXX=g++
 RM=rm -f
-#CXXFLAGS=-Wall -std=c++11 -g
-CXXFLAGS=-Wall -std=c++11 -O3
-LDFLAGS=
-LDLIBS=
+#CXXFLAGS=-Wall -O0 -g -fopenmp -pthread -std=c++11 -Wl,--no-as-needed
+CXXFLAGS=-Wall -O3 -fopenmp -pthread -lpthread -std=c++11 -Wl,--no-as-needed
+LDFLAGS=-fopenmp -pthread -std=c++11 -Wl,--no-as-needed
+LDLIBS=-lpthread
 
 SRCS=ems.hpp \
-		 utils.h \
-		 ems1.hpp \
-		 motif_tree.hpp \
-		 ems2.hpp
+     utils.h \
+     motif.hpp \
+     motif_set.hpp \
+     motif_tree.hpp \
+     motif_tree_base.hpp \
+     motif_tree_fast.hpp \
+     motif_trie.hpp \
+     ems1.hpp \
+     ems2.hpp \
+     ems2p.hpp
 
 .PHONY: all clean dist-clean
 

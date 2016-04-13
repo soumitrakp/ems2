@@ -3,70 +3,94 @@
 
 #include "ems.hpp"
 #include "motif_tree.hpp"
+#include "motif_tree_fast.hpp"
 
-class Ems2 : public MotifFinder<Ems2> {
+
+template<class T>
+struct ems { static const char * name; };
+template<> const char *ems<MotifTreeFast>::name = "ems2";
+template<> const char *ems<MotifTreeSlow>::name = "ems2m";
+
+template <class MotifTree>
+class Ems2 : public MotifFinder< Ems2<MotifTree> > {
+  using MotifFinder< Ems2<MotifTree> >::motifs;
+  using MotifFinder< Ems2<MotifTree> >::l;
+  using MotifFinder< Ems2<MotifTree> >::d;
+  using MotifFinder< Ems2<MotifTree> >::reads;
+  using MotifFinder< Ems2<MotifTree> >::domain;
+  using MotifFinder< Ems2<MotifTree> >::domain_size;
   MotifTree main_tree;
   MotifTree *curr_tree;
   size_t count = 0;
   int leftmost;
   int rightmost;
-  std::string x;
-  std::string mark;
+  std::string kmer;
+  std::vector<std::string> nbrs;
+  int stars;
+  double gen_time=0.0;
 
   void gen_nbrhood3(int start, int alpha) {
-    int len = x.size();
+  int len = kmer.size();
     if (alpha > 0) {
-      for (int j=start; j<len+1; j++) {
-        if ((mark[j] == 'Y') || (mark[j] == 'Z')) continue;
-        x.insert(j,1,'*');
-        mark.insert(j,1,'N');
+    int j;
+    for (j=start; j<len; j++) {
+      if (kmer[j] == '*') continue;
+      if (kmer[j] == '-') continue;
+      if ((j>0) && (kmer[j-1] == '-')) continue;
+      kmer.insert(j,1,'*');
         gen_nbrhood3(j+1, alpha-1); 
-        x.erase(j,1);
-        mark.erase(j,1);
+      kmer.erase(j,1);
+    }
+    if (rightmost && (kmer[j-1] != '-')) {
+      kmer.insert(j,1,'*');
+      gen_nbrhood3(j+1, alpha-1); 
+      kmer.erase(j,1);
       }
     } else {
-      curr_tree->insert(x);
+      std::string t(kmer);
+      int i=t.size()-1;
+      while (i>=0) {
+        if (t[i] == '-') t.erase(i,1);
+        if (t[i] == '*') t[i] = domain_size;
+        i--;
+      }
+      curr_tree->insert(t);
     }
   }
 
-  void gen_nbrhood2(int start, bool stars_before, int sigma, int alpha) {
-    int len = x.size();
+  void gen_nbrhood2(int start, int sigma, int alpha) {
+  int len = kmer.size();
     if (sigma > 0) {
-      for (int j=start; j<len; j++, stars_before=false) {
-        if ((mark[j] == 'Y')) continue;
-        char rr = mark[j+1];
-        if (!rightmost && stars_before && (rr == 'Y')) continue;
-        char t = x[j];
-        char r = mark[j];
-        x[j] = '*';
-        mark[j] = 'Y';
-        if (!leftmost && stars_before && (rr == 'N')) mark[j+1] = 'Z';
-        gen_nbrhood2(stars_before, j+1, sigma-1, alpha); 
-        x[j] = t;
-        mark[j] = r;
-        mark[j+1] = rr;
+    for (int j=start; j<len; j++) {
+      if (kmer[j] == '-') { while (kmer[++j] == '-'); continue; }
+      if (!rightmost && (stars+1 == j) && (kmer[j+1] == '-')) continue;
+      char t = kmer[j];
+      kmer[j] = '*';
+      int old_stars = stars;
+      if (stars+1 == j) stars++;
+      gen_nbrhood2(j+1, sigma-1, alpha); 
+      kmer[j] = t;
+      stars = old_stars;
       }
     } else {
-      gen_nbrhood3(0, alpha);
+    int new_start = leftmost ? 0 : stars+2;
+    gen_nbrhood3(new_start, alpha);
     }
   }
 
-  void gen_nbrhood(int start, int end, int delta, int sigma, int alpha) {
+void gen_nbrhood(int start, int delta, int sigma, int alpha) {
+  int len = kmer.size();
     if (delta > 0) {
-      for (int j=start; j<end; j++) {
-        char t = x[j];
-        char rr = mark[j];
-        x.erase(j,1);
-        mark.erase(j,1);
-        char r = mark[j];
-        mark[j] = 'Y';
-        gen_nbrhood(j, end-1, delta-1, sigma, alpha);
-        x.insert(j,1,t);
-        mark[j] = r;
-        mark.insert(j,1, rr);
+    for (int j=start; j<len; j++) {
+      char t = kmer[j];
+      //kmer.erase(j,1);
+      kmer[j] = '-';
+      gen_nbrhood(j+1, delta-1,sigma,alpha);
+      //kmer.insert(j,1,t);
+      kmer[j] = t;
       }
     } else {
-      gen_nbrhood2(0, true, sigma, alpha);
+    gen_nbrhood2(0, sigma, alpha);
     }
   }
 
@@ -78,26 +102,22 @@ class Ems2 : public MotifFinder<Ems2> {
         int alpha = delta - q;
         int sigma = d - alpha - delta;
         for (int i=0; i<m-k+1; i++) {
-          x = seq.substr(i, k);
-          mark = std::string(k+1, 'N');
-          int start;
-          if (i>0) { mark[0] = 'Z'; leftmost = 0;} else {leftmost = 1;}
-          if (i+k<m) { mark[k] = 'Z'; start = 1; rightmost = 0;} else { start = 0; rightmost = 1;}
-          gen_nbrhood(start, k, delta, sigma, alpha);
+        kmer = seq.substr(i, k);
+        int start = 1; stars = -1;
+        leftmost = rightmost = 0;
+        if (i == 0) { leftmost = 1; }
+        if (i+k == m) { start = 0; rightmost = 1; }
+        gen_nbrhood(start, delta, sigma, alpha);
         }
       }
-    }
-  }
-  void reset() {
-    for (size_t i=0; i< motifs.size(); i++) {
-      std::cout << motifs[i] << std::endl;
     }
   }
 
   public:
 
-  Ems2(const std::string &input, int l, int d):
-    MotifFinder("Ems2", input, l, d), main_tree(l, motifs, "main"), curr_tree(&main_tree) {
+  Ems2<MotifTree>(const std::string &input, int l, int d, Params &params):
+    MotifFinder<Ems2<MotifTree> >(ems<MotifTree>::name, input, l, d, params), main_tree(l, motifs, "main"), curr_tree(&main_tree) {
+      main_tree.setDomain(domain);
     }
 
   void search() {
@@ -109,6 +129,7 @@ class Ems2 : public MotifFinder<Ems2> {
       std::cout.flush();
       Motifs tmp;
       MotifTree tmp_tree(l, tmp, "tmp");
+      tmp_tree.setDomain(domain);
       curr_tree = &tmp_tree;
       gen_all(reads[i], l, d);
       main_tree.intersect(curr_tree);

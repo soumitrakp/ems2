@@ -16,57 +16,18 @@
 #include<ctime>
 #include<cassert>
 
+using namespace std;
 
 typedef std::vector<std::string> Reads;
 typedef std::vector<std::string> Motifs;
 
-const std::string domain="ACGT";
-const size_t domain_size = domain.size();
+typedef unsigned char uchar;
+typedef unsigned int uint32;
+typedef unsigned long long uint64;
 
-std::string to_str(uint64_t id, int l) {
-  std::string s;
-  do {
-    int c = id & 0x3;
-    if (c==0) { s.insert(0,1,'A'); }
-    else if (c==1) { s.insert(0,1,'C'); }
-    else if (c==2) { s.insert(0,1,'G'); }
-    else if (c==3) { s.insert(0,1,'T'); }
-    id >>= 2; l--;
-  } while (id>0);
-  while (l>0) {l--; s.insert(0,1,'A');}
-  return s;
-}
+//const std::string domain="ACGT";
+//const size_t domain_size = domain.size();
 
-uint64_t to_int(std::string s) {
-  uint64_t idx = 0;
-  int len = s.size();
-  for(int i=0;i<len;i++) {
-    switch(s[i]) {
-      case 'A':
-      case 'a':
-        idx=idx<<2;
-        break;
-      case 'C':
-      case 'c':
-      idx=idx<<2;
-      idx+=1;
-        break;
-      case 'G':
-      case 'g':
-        idx=idx<<2;
-      idx+=2;
-        break;
-      case 'T':
-      case 't':
-      idx=idx<<2;
-      idx+=3;
-        break;
-      default:
-        break;
-    }
-  }
-  return idx;
-}
 
 
 void read_file(const char *fname, Reads &reads) {
@@ -81,7 +42,31 @@ void read_file(const char *fname, Reads &reads) {
   }
 }
 
+string getAlphabet(vector<string>& strings) {
+	char f[256];
+	memset(f, 0, 256 * sizeof(char));
+	for (unsigned i = 0; i < strings.size(); ++i) {
+		string& s = strings[i];
+		for (unsigned j = 0; j < s.length(); ++j)
+			f[(int)s[j]] = 1;
+	}
+	string sig;
+	for (int i = 0; i < 256; ++i)
+		if (f[i])
+			sig.push_back((char) i);
+	return sig;
+}
 
+void encodeString(string& s, string &sigma) {
+	for (unsigned j = 0; j < s.length(); ++j) {
+    s[j] = sigma.find(s[j]);
+  }
+}
+
+void encodeStrings(vector<string>& strings, string &sigma) {
+	for (unsigned i = 0; i < strings.size(); ++i)
+		encodeString(strings[i], sigma);
+}
 
 bool diff_motifs(Motifs & m1, Motifs & m2) {
   if (m1.size() != m2.size()) return true;
