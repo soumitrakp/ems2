@@ -28,4 +28,4 @@ $ ems -s 2p -l 16 -d 3 -t 8 ../test/planted_l16_d3.txt
 
 ## References
 
-- Soumitra Pal, Sanguthevar Rajasekaran, "Improved algorithms for finding edit distance based motifs", BIBM, 2015, 2015 IEEE     International Conference on Bioinformatics and Biomedicine (BIBM), 2015 IEEE International Conference on Bioinformatics and    Biomedicine (BIBM) 2015, pp. 537-542, doi:10.1109/BIBM.2015.7359740 
+- Soumitra Pal, Sanguthevar Rajasekaran, "Improved algorithms for finding edit distance based motifs", IEEE International Conference on Bioinformatics and Biomedicine (BIBM) 2015, pp. 537-542, doi:10.1109/BIBM.2015.7359740 
